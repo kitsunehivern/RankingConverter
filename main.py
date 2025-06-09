@@ -104,6 +104,8 @@ def solve_competitive_admission(data):
     admitted_students = set()
     
     first_pref_candidates = []
+    french_actual_candidates = []
+    
     for student in data:
         if not student or len(student) < max(sum1_s, sum2_s) + 1:
             continue
@@ -119,13 +121,25 @@ def solve_competitive_admission(data):
             
             if can_admit_first:
                 student_record = student[:] + [first_subject, chuyen1, total1, 1]
-                first_pref_candidates.append((first_subject, student_record, total1))
+                
+                if first_subject == txt_phap_:
+                    french_actual_candidates.append((student_record, total1))
+                else:
+                    first_pref_candidates.append((first_subject, student_record, total1))
     
-    subject_first_candidates = {subject: [] for subject in subjects}
+    if french_actual_candidates:
+        french_sorted = sorted(french_actual_candidates, key=lambda x: x[1], reverse=True)
+        for student_record, _ in french_sorted[:hs_]:
+            admitted[txt_phap_].append(student_record)
+            admitted_students.add(student_record[0])
+    
+    subject_first_candidates = {subject: [] for subject in subjects if subject != txt_phap_}
     for subject, student_record, total_score in first_pref_candidates:
         subject_first_candidates[subject].append((student_record, total_score))
     
     for subject in subjects:
+        if subject == txt_phap_:
+            continue
         candidates = sorted(subject_first_candidates[subject], key=lambda x: x[1], reverse=True)
         for student_record, _ in candidates[:hs_]:
             admitted[subject].append(student_record)
@@ -192,12 +206,17 @@ def safe_sort_key(student, score_index):
         return 0.0
 
 def solve_p(phap, admitted_to_english, data):
+    french_available_slots = hs_ - len(phap)
+    
+    if french_available_slots <= 0:
+        return []
+    
     english_students = [s for s in data if s[mon_s1] == txt_anh_]
     english_students = sorted(english_students, 
                              key=lambda x: safe_score(x[sum1_s]), 
                              reverse=True)
     
-    predict = []
+    candidates = []
     admitted_english_ids = {s[0] for s in admitted_to_english}
     admitted_phap_ids = {s[0] for s in phap}
     
@@ -209,9 +228,10 @@ def solve_p(phap, admitted_to_english, data):
                         student[chuyen_s1], student[sum1_s])):
             
             student_record = student[:] + [txt_phap_, safe_score(student[chuyen_s1]), safe_score(student[sum1_s]), "Chuyển từ Anh"]
-            predict.append(student_record)
+            candidates.append(student_record)
     
-    return sorted(predict, key=lambda x: safe_score(x[-2]), reverse=True)
+    candidates = sorted(candidates, key=lambda x: safe_score(x[-2]), reverse=True)
+    return candidates[:french_available_slots]
 
 def write(file, name_s, data):
     if os.path.exists(file) == False:
@@ -264,6 +284,13 @@ tin, toan, anh, van, su, dia, sinh, phap, li, hoa = solve_competitive_admission(
 
 phap_predict = solve_p(phap, anh, data)
 
+if phap_predict and len(phap) < hs_:
+    combined_french = phap + phap_predict
+    combined_french.sort(key=lambda x: safe_score(x[-2]), reverse=True)
+    phap = combined_french[:hs_]
+    slots_for_transfers = min(len(phap_predict), hs_ - len([s for s in phap if s[-1] != "Chuyển từ Anh"]))
+    phap_predict = phap_predict[:slots_for_transfers] if slots_for_transfers > 0 else []
+
 tin_output = rm_first_col(tin)
 toan_output = rm_first_col(toan)
 anh_output = rm_first_col(anh)
@@ -276,17 +303,19 @@ li_output = rm_first_col(li)
 hoa_output = rm_first_col(hoa)
 phap_predict_output = rm_first_col(phap_predict)
 
+if (os.path.exists(RESULT)):
+    os.remove(RESULT)
 write(RESULT, 'Toan', toan_output)
 write(RESULT, 'Tin', tin_output)
 write(RESULT, 'Van', van_output)
 write(RESULT, 'Anh', anh_output)
 write(RESULT, 'Su', su_output)
 write(RESULT, 'Dia', dia_output)
-write(RESULT, 'sinh', sinh_output)
-write(RESULT, 'phap', phap_output)
-write(RESULT, 'phap_anh', phap_predict_output)
-write(RESULT, 'hoa', hoa_output)
-write(RESULT, 'ly', li_output)
+write(RESULT, 'Sinh', sinh_output)
+write(RESULT, 'Phap', phap_output)
+# write(RESULT, 'Phap_Anh', phap_predict_output)
+write(RESULT, 'Hoa', hoa_output)
+write(RESULT, 'Li', li_output)
 
 head(RESULT, headers)
 fit(RESULT)
